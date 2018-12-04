@@ -6,6 +6,8 @@
         e.g. (r ->), State, Either, etc.
       cata works from the leaves upwards, so in the XNor case we will process the list
       backwards
+
+      recursion schemes help you suss out bad specifications ;) see repeatConcat
  -}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE TypeApplications #-}
@@ -64,7 +66,7 @@ repeatedFrequency = \case
 repeatConcat :: [a] -> Stream a
 repeatConcat = Nu $ \case
   [] -> (undefined, [])
-  (x:xs) -> (x,xs)
+  ys@(x:xs) -> (x,xs ++ ys)
 
 bar :: Coalgebra (Either Int) (Int, Set Int, Stream Int)
 bar (sum, env, stream) =
@@ -97,5 +99,5 @@ runner ns = ana bar (0, Set.singleton 0, repeatConcat ns)
 frequency' :: ByteString -> Int
 frequency' = either (error . show) id
            -- . fmap (($ Set.singleton 0) . cata foo . reverse)
-           . fmap (cata runToEnd . runner)
+           . fmap (runToEnd . runner)
            . parseOnly numbers
