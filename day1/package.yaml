@@ -1,0 +1,13 @@
+name: day1
+
+dependencies:
+- attoparsec
+- base >= 4.7 && < 5
+- bytestring
+- containers
+- mtl
+- yaya
+- yaya-unsafe
+
+library:
+  source-dirs: src

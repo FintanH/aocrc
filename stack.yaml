@@ -1,0 +1,12 @@
+resolver: lts-12.21
+
+packages:
+- day1
+
+extra-deps:
+  - git: https://github.com/FintanH/yaya
+    commit: dfb453270307fd5a8b2f846b5d5345a5156cb667
+    subdirs:
+      - core
+      - unsafe
+
