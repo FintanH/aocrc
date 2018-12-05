@@ -1,0 +1,25 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 1eabcd85e22cf8bdb098e209062590345f58fa9f46dac0ebdc04928a90a45233
+
+name:           day2
+version:        0.0.0
+build-type:     Simple
+
+library
+  exposed-modules:
+      Checksum
+  other-modules:
+      Paths_day2
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , yaya
+    , yaya-unsafe
+  default-language: Haskell2010
