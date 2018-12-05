@@ -6,8 +6,10 @@ dependencies:
 - bytestring
 - containers
 - mtl
+- parsers
 - yaya
 - yaya-unsafe
 
 library:
   source-dirs: src
+  ghc-options: -Wall

@@ -2,6 +2,7 @@ resolver: lts-12.21
 
 packages:
 - day1
+- day2
 
 extra-deps:
   - git: https://github.com/FintanH/yaya
@@ -9,4 +10,12 @@ extra-deps:
     subdirs:
       - core
       - unsafe
+
+ghc-options:
+    # All packages
+    "$locals":
+      -Wall
+      -Werror
+      -fwarn-unused-imports
+      -O2
 

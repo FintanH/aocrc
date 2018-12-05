@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ae49192705fa0757730347a3b95c1c0ab790e9b80d40592734fb581a18ed88d1
+-- hash: 2c09b7a804f7f70ada9efcd51ba156f6dd66bac5d3cb2ecfeb87e17f4b928c33
 
 name:           day1
 version:        0.0.0
@@ -17,12 +17,14 @@ library
       Paths_day1
   hs-source-dirs:
       src
+  ghc-options: -Wall
   build-depends:
       attoparsec
     , base >=4.7 && <5
     , bytestring
     , containers
     , mtl
+    , parsers
     , yaya
     , yaya-unsafe
   default-language: Haskell2010

@@ -21,54 +21,72 @@ import Control.Monad.Except
 import Control.Monad.State
 
 import Data.Attoparsec.ByteString
-import Data.Attoparsec.Char8 (char, digit, endOfLine)
 import Data.ByteString (ByteString)
-import Data.Foldable
-import Data.Functor.Const
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Text.Parser.Char (char, digit, newline)
 
 import Yaya
 import Yaya.Control
 import Yaya.Data
 import Yaya.Either
-import Yaya.Unsafe.Data
+import Yaya.Unsafe.Data () -- imported for orphan instances
 import Yaya.Zoo
 
-import Debug.Trace
-
+-- | Parse a `+` token.
 plus :: Parser Char
 plus = char '+'
 
+-- | Parse a `-` token.
 minus :: Parser Char
 minus = char '-'
 
+-- | Parse a sign (+/-) followed by its digits.
 number :: Parser Int
 number = do
   sign <- try (minus >> pure negate) <|> (plus >> pure id)
   sign . read <$> many1 digit
 
+-- | Parse a newline separated string of 'number'.
 numbers :: Parser [Int]
-numbers = number `sepBy` endOfLine
+numbers = number `sepBy` newline
 
+-- | This 'Algebra' serves as the summing of our incoming frequencies.
+--
+--   XNor acts as our "pattern functor" which is the pattern functor
+--   for lists, i.e. [a].
+--
+--   We can see this by looking at the definition of 'XNor' from yaya.
+--   @
+--     data XNor a b
+--       = None
+--       | Both a b
+--   @
+--
+--   The case of 'None' acts the base case '[]' (or Nil).
+--   The case of 'Both' acts as 'a : [a]' (or Cons). It contains
+--   the item in the list and the rest of the list.
+--
+--   'Algebra f a' is an alias for 'f a -> a', so we can
+--   translate the type signature to 'XNor Int Int -> Int'.
+--
+--   'Both x' is the head of the list, our current element
+--   the 'y' being the accumulated sum, from the tail.
+--
+--   'None', as mentioned is the base case and thus we can
+--   return 0.
+--
+--   This 'Algebra' can then be passed to 'cata' which will
+--   process things from the back of the list, (read leaf of computation)
+--   up to towards the head.
 sum' :: Algebra (XNor Int) Int
 sum' = \case
   Both x y -> x + y
   None     -> 0
 
-repeatedFrequency :: XNor Int Int -> State (Set Int) Int
-repeatedFrequency = \case
-  Both x y -> do
-    env <- get
-    let r = y + x
-    if r `Set.member` env
-       then pure r
-       else put (r `Set.insert` env) >> (pure r)
-  None -> pure 0
-
 -- Coalgebra ((,) a) (t, t) === (t, t) -> (a, (t, t))
 -- AndMaybe is the pattern functor for NonEmpty
-repeatConcat :: Steppable t (AndMaybe a) => Coalgebra ((,) a) (t, t)
+repeatConcat :: Coalgebra ((,) a) (Mu (AndMaybe a), Mu (AndMaybe a))
 repeatConcat (orig, current) =
   case project current of
     Only a     -> (a, (orig, orig))
@@ -84,26 +102,23 @@ nonEmpty = \case
 makeStream :: List Int -> Stream Int
 makeStream l = case project l of
   None     -> ana duplicate 0
-  Both h t -> ana repeatConcat (duplicate $ (cata nonEmpty t h :: Mu (AndMaybe Int)))
+  Both h t -> ana repeatConcat (duplicate $ (cata nonEmpty t h))
   where
     duplicate :: Coalgebra ((,) a) a
     duplicate i = (i, i)
 
--- -6, +3, +8, +5, -6
---  , -6, +3, +8, +5, -6,
--- 0, -6, -3, 5, 10, 4, -2, 1, 9, 14, 8, 2, 5
-bar :: Coalgebra (Either Int) (Int, Set Int, Stream Int)
-bar (sum, env, stream) =
+repeatCoalgebra :: Coalgebra (Either Int) (Int, Set Int, Stream Int)
+repeatCoalgebra (tally, env, stream) =
   let (currentElem, restOfStream) = project stream
-      result = sum + currentElem
+      result = tally + currentElem
   in if result `Set.member` env
      then Left result
      else Right $ (result, Set.insert result env, restOfStream)
 
-foo :: XNor Int Int -> State (Set Int) (Either Int Int)
-foo = \case
-  Both currentElement sum -> do
-    let result = currentElement + sum
+repeatAlgebra :: XNor Int Int -> State (Set Int) (Either Int Int)
+repeatAlgebra = \case
+  Both currentElement tally -> do
+    let result = currentElement + tally
     env <- get
     if result `Set.member` env
        then pure $ Left result
@@ -113,15 +128,15 @@ foo = \case
 frequency :: ByteString -> Int
 frequency = either (error . show) id . fmap (cata sum') . parseOnly numbers
 
-runComp :: [Int] -> Int
-runComp = either id (error "Could not find frequency")
-        . flip evalState (Set.singleton 0) . runExceptT . cataM (ExceptT . foo)
+runRepeat :: [Int] -> Int
+runRepeat = either id (error "Could not find frequency")
+        . flip evalState (Set.singleton 0) . runExceptT . cataM (ExceptT . repeatAlgebra)
 
-runner :: [Int] -> Nu (Either Int)
-runner ns = ana bar (0, Set.singleton 0, makeStream $ cata embed ns)
-
-frequency' :: ByteString -> Int
-frequency' = either (error . show) id
-           -- . fmap (($ Set.singleton 0) . cata foo . reverse)
+findRepeat :: ByteString -> Int
+findRepeat = either (error . show) id
            . fmap (runToEnd . runner)
            . parseOnly numbers
+  where
+    runner :: [Int] -> Nu (Either Int)
+    runner ns = ana repeatCoalgebra (0, Set.singleton 0, makeStream $ cata embed ns)
+
