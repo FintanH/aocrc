@@ -84,17 +84,63 @@ sum' = \case
   Both x y -> x + y
   None     -> 0
 
--- Coalgebra ((,) a) (t, t) === (t, t) -> (a, (t, t))
--- AndMaybe is the pattern functor for NonEmpty
-repeatConcat :: Coalgebra ((,) a) (Mu (AndMaybe a), Mu (AndMaybe a))
+-- | This 'Coalgebra' serves as taking a 'NonEmptyList' and repeating it, followed
+--   by concatenating them together.
+--
+--   This can be visualised as:
+--    * Given a list: 1, 2, 3, 4
+--    * Results in: 1, 2, 3, 4, 1, 2, 3, 4, ...
+--
+--  'NonEmptyList a' is a type alias for 'Mu (AndMaybe a)'. There are two things
+--  we need to address here, so let's talk about 'AndMaybe' first.
+--
+--  'AndMaybe' is our pattern functor and acts as, you guessed it, the pattern functor
+--  for non-empty lists. We can understand this by looking at its definition:
+--  @
+--    data AndMaybe a b
+--      = Only a
+--      | Indeed a b
+--  @
+--
+--  We have a guaranteed item in 'Only', and then 'Indeed' looks similar
+--  to 'Both' from 'XNor', so the head, and the rest of the list.
+--
+--  A usual construction of NonEmpty is that we have a guaranteed 'head' of the
+--  list and the rest of the list. In this case 'Only' acts as the guaranteed 'last'
+--  of the list, and 'Indeed' as the front ('init') of the list.
+--
+--  We have now introduced 'Mu' as well. Let's gain some intuition for what it is
+--  by saying that the type alias 'List a' can be defined as 'Mu (XNor a)'.
+--
+--  'Mu' is the fixed-point operator for finite/inductive data structures. This means
+--  we can build up a non-empty list, embedding our pattern functors in 'Mu' and this
+--  expresses that we have a finite computation.
+--
+--  At this point we can unpack what our type signature means:
+--  @
+--        Coalgebra ((,) a) (NonEmptyList a, NonEmptyList a)
+--    === (NonEmptyList a, NonEmptyList a) -> (a, (NonEmptyList a, NonEmptyList a))
+--  @
+--
+--  So we have the original list as our first element in the '(,)', and the
+--  current 'NonEmptyList' that we are inspecting. Calling 'project' let's
+--  us unwrap one layer 'Mu' and gives us back an 'AndMaybe' value that we case on.
+--
+--  If we have 'Only' one item we return the last item of the list and the original
+--  list again, i.e. we've reached the end so now we repeat.
+--
+--  If we have 'Indeed' then we unpack the head and pass down the tail.
+--
+--  We always keep the original to refer to it once we get to the end of the list.
+repeatConcat :: Coalgebra ((,) a) (NonEmptyList a, NonEmptyList a)
 repeatConcat (orig, current) =
   case project current of
     Only a     -> (a, (orig, orig))
     Indeed a t -> (a, (orig, t))
 
 -- | Create a non-empty sequence by consing an element onto a sequence
--- Algebra (XNor a) (a -> t) === XNor a (a -> t) -> (a -> t)
-nonEmpty :: Steppable t (AndMaybe a) => Algebra (XNor a) (a -> t)
+-- Algebra (XNor a) (a -> NonEmptyList a) === XNor a (a -> NonEmptyList a) -> (a -> NonEmptyList a)
+nonEmpty :: Algebra (XNor a) (a -> NonEmptyList a)
 nonEmpty = \case
   None -> embed . Only
   Both a f -> embed . flip Indeed (f a)
