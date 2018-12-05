@@ -1,14 +1,16 @@
 {- | Notes:
+        e.g. (r ->), State, Either, etc.
+      As you begin to wish for functionality then you wish things into existence,
+      Begin by writing algebra, base case, recursive cases
       Recursive instance of XNor and [], unsafe to due infinite lists
       Start with sum pattern functor
-      Begin by writing algebra, base case, recursive cases
-      As you begin to wish for functionality then you wish things into existence,
-        e.g. (r ->), State, Either, etc.
-      cata works from the leaves upwards, so in the XNor case we will process the list
       backwards
+      cata works from the leaves upwards, so in the XNor case we will process the list
 
       recursion schemes help you suss out bad specifications ;) see repeatConcat
  -}
+
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -33,6 +35,7 @@ import Yaya.Either
 import Yaya.Unsafe.Data
 import Yaya.Zoo
 
+import Debug.Trace
 
 plus :: Parser Char
 plus = char '+'
@@ -63,11 +66,32 @@ repeatedFrequency = \case
        else put (r `Set.insert` env) >> (pure r)
   None -> pure 0
 
-repeatConcat :: [a] -> Stream a
-repeatConcat = Nu $ \case
-  [] -> (undefined, [])
-  ys@(x:xs) -> (x,xs ++ ys)
+-- Coalgebra ((,) a) (t, t) === (t, t) -> (a, (t, t))
+-- AndMaybe is the pattern functor for NonEmpty
+repeatConcat :: Steppable t (AndMaybe a) => Coalgebra ((,) a) (t, t)
+repeatConcat (orig, current) =
+  case project current of
+    Only a     -> (a, (orig, orig))
+    Indeed a t -> (a, (orig, t))
 
+-- | Create a non-empty sequence by consing an element onto a sequence
+-- Algebra (XNor a) (a -> t) === XNor a (a -> t) -> (a -> t)
+nonEmpty :: Steppable t (AndMaybe a) => Algebra (XNor a) (a -> t)
+nonEmpty = \case
+  None -> embed . Only
+  Both a f -> embed . flip Indeed (f a)
+
+makeStream :: List Int -> Stream Int
+makeStream l = case project l of
+  None     -> ana duplicate 0
+  Both h t -> ana repeatConcat (cata nonEmpty t h)
+  where
+    duplicate :: Coalgebra ((,) a) a
+    duplicate i = (i, i)
+
+-- -6, +3, +8, +5, -6
+--  , -6, +3, +8, +5, -6,
+-- 0, -6, -3, 5, 10, 4, -2, 1, 9, 14, 8, 2, 5
 bar :: Coalgebra (Either Int) (Int, Set Int, Stream Int)
 bar (sum, env, stream) =
   let (currentElem, restOfStream) = project stream
@@ -94,7 +118,7 @@ runComp = either id (error "Could not find frequency")
         . flip evalState (Set.singleton 0) . runExceptT . cataM (ExceptT . foo)
 
 runner :: [Int] -> Nu (Either Int)
-runner ns = ana bar (0, Set.singleton 0, repeatConcat ns)
+runner ns = ana bar (0, Set.singleton 0, makeStream $ cata embed ns)
 
 frequency' :: ByteString -> Int
 frequency' = either (error . show) id
