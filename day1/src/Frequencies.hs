@@ -84,7 +84,7 @@ nonEmpty = \case
 makeStream :: List Int -> Stream Int
 makeStream l = case project l of
   None     -> ana duplicate 0
-  Both h t -> ana repeatConcat (cata nonEmpty t h)
+  Both h t -> ana repeatConcat (duplicate $ (cata nonEmpty t h :: Mu (AndMaybe Int)))
   where
     duplicate :: Coalgebra ((,) a) a
     duplicate i = (i, i)
