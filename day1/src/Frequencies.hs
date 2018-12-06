@@ -142,7 +142,37 @@ repeatConcat (orig, current) =
     Indeed a t -> (a, (orig, t))
 
 -- | Create a non-empty sequence by consing an element onto a sequence
--- Algebra (XNor a) (a -> NonEmptyList a) === XNor a (a -> NonEmptyList a) -> (a -> NonEmptyList a)
+
+-- | Here we are creating an 'Algebra' to convert a list to a non-empty list.
+--
+--   As we saw in 'sum\'' we were representing a list through its pattern functor
+--   'XNor', which we also notice here.
+--
+--   And in 'repeatConcat' we looked through 'NonEmptyList' and how it was an
+--   alias for 'Mu (AndMaybe a)' our pattern functor for non-empty lists and
+--   the fixed-point operator for finite data structures.
+--
+--   So lets look at what this 'Algebra' breaks out into:
+--   @
+--         Algebra (XNor a) (a -> NonEmptyList a)
+--     === XNor a (a -> NonEmptyList a) -> (a -> NonEmptyList a)
+--   @
+--
+--   So, given an 'XNor' of an 'a's as the items, and 'a -> NonEmptyList a'
+--   as the tail or continuation of the list, we get back a function from
+--   'a -> NonEmptyList a'.
+--
+--   This comes across as intuitive, since we can turn any list into a
+--   non-empty list as long as provide at lease ONE item. Our initial 'a'
+--   for the function!
+--
+--   In the case of 'None', our function will be 'Only'. So we take that
+--   'a' passed in and return the singleton, non-empty list.
+--
+--   In the case of 'Both', we have the head of our list, and the 'NonEmptyList'
+--   being built up from our 'Only' element. So, we apply the continuation and
+--   it now acts as the head of our 'Indeed' non-empty list. Again, waiting
+--   for the next continuation, when we finally call this function.
 nonEmpty :: Algebra (XNor a) (a -> NonEmptyList a)
 nonEmpty = \case
   None -> embed . Only
