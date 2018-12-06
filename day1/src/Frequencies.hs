@@ -33,6 +33,9 @@ import Yaya.Either
 import Yaya.Unsafe.Data () -- imported for orphan instances
 import Yaya.Zoo
 
+{- |
+-}
+
 -- | Parse a `+` token.
 plus :: Parser Char
 plus = char '+'
@@ -178,6 +181,43 @@ nonEmpty = \case
   None -> embed . Only
   Both a f -> embed . flip Indeed (f a)
 
+-- | This is what it all comes down to. We want to turn our list into
+--   a repeating stream of elements.
+--
+--   Our input is 'List Int' which is a type alias for 'Mu (XNor a), which
+--   at this point we know by now that combining the pattern functor for
+--   lists, 'XNor', and 'Mu' we are saying we have a finite list structure.
+--
+--   Our output is 'Stream Int', which is a type alias for 'Nu ((,) a).
+--   This particular pattern we have not come across yet. So lets see what
+--   these two things combine entail.
+--
+--   'Nu' is the dual fixed-point operator to 'Mu'. As its dual it means
+--   that it describes infinite/co-inductive data structures. So when we
+--   combine 'Nu' with pattern functors, we are saying that we have potentially
+--   infinite data. This is very true for our case of repeating a list.
+--
+--   '(,) a' is chosen as the pattern functor because it naturally represents
+--   an infinite stream of data. We have the head of the stream, the first element
+--   of the tuple, and the rest of the stream, the second element of the stream.
+--
+--   We could anaolgise this to a manual recursive definition of a stream:
+--   @
+--     data Stream = a :<< Stream a
+--   @
+--
+--   Another way of looking at it is streams are lists without a Nil case.
+--
+--   With this explanation out of the way we can break down how to implement this.
+--   We first 'project' our list `l` to unwrap one layer of our 'List'.
+--
+--   In the case of 'None' we make a "safe" move of producing a stream of 0s.
+--   We cannot do much with an empty list, since it is undefined for 'Stream' data,
+--   but it works in our larger problem because adding 0 is no-op.
+--
+--   In the case of 'Both' we utilise our 'nonEmpty' algebra to convert our 'List'
+--   into a 'NonEmptyList'. We duplicate this result and infinitely generate, via 'ana',
+--   a 'Stream' of 'NonEmptyList's using 'repeatConcat'.
 makeStream :: List Int -> Stream Int
 makeStream l = case project l of
   None     -> ana duplicate 0
@@ -186,6 +226,53 @@ makeStream l = case project l of
     duplicate :: Coalgebra ((,) a) a
     duplicate i = (i, i)
 
+-- | This is the meat of our problem. Here we are implementing the
+--   algorithm to detect repeating frequencies.
+--
+--   The problem at hand is that given a repeating stream of integers
+--   we should keep a tallying sum and as soon as we see the first repeat
+--   we should return that result.
+--
+--   An example given on the site is:
+--   Input: -6, +3, +8, +5, -6
+--   Output: 5
+--   Progress: 0, -6, -3, 5, 10, 4, -2, 1, 9, 14, 8, 2, 5
+--
+--   Since we don't necessarily know how long this algorithm can go on
+--   for we describe it as 'Coalgebra' and provide it a seed. So lets
+--   inspect the seed first.
+--
+--   Our input is '(Int, Set Int, Stream Int)'. The first value is our
+--   running tally, so we can keep an account of our sum as go progress.
+--   'Set Int' keeps track of the values we have seen so far. Finally,
+--   'Stream Int' is the repeating stream that we will be inspecting
+--   as we progress.
+--
+--   The first thing we want to do is inspect the head of the stream, this
+--   can be done by using 'project' to split the stream in its head and its
+--   tail.
+--
+--   We can then get our latest tally by summing our current element, the head
+--   of the stream, with our aggregated tally, the seed.
+--
+--   We then check that our `result` is a member of the 'Set' carried in the seed.
+--   If it is, then great! We found our result and shortcircuit with 'Left'.
+--   If not, we continue the combination updating our seed values, and returning
+--   with 'Right'.
+--
+--   Lets take a moment to consider the semantics of 'Either' in this case, because
+--   it's important to note how its acting and its general use in recursion schemes.
+--
+--   When we think about 'Either' we generally think about short-circuiting behaviour.
+--   This is drilled into us when we write the 'Functor', 'Applicative', and 'Monad' instances.
+--   When we see the 'Left' case we propagate this result.
+--   In our case it's the natural pattern functor for partial functions. This can be seen in the
+--   newtype defined in yaya, 'Partial'. It is defined as 'Partial a = Nu (Either a)'.
+--   The 'Partial' relates to the short circuiting. We _may_ get a result and this will be
+--   passed back as a 'Left' value. Or we may just keep computing forever with a 'Right' value.
+--
+--   In our case this is very true since we could have a list of one number `+1`. This
+--   will end up in a stream of infinite `+1`s and it will never find a repeating frequency!
 repeatCoalgebra :: Coalgebra (Either Int) (Int, Set Int, Stream Int)
 repeatCoalgebra (tally, env, stream) =
   let (currentElem, restOfStream) = project stream
@@ -194,6 +281,8 @@ repeatCoalgebra (tally, env, stream) =
      then Left result
      else Right $ (result, Set.insert result env, restOfStream)
 
+-- | We can leave this as an exercise to the reader of what the attempt
+--   was here, and why it doesn't work.
 repeatAlgebra :: XNor Int Int -> State (Set Int) (Either Int Int)
 repeatAlgebra = \case
   Both currentElement tally -> do
@@ -204,13 +293,19 @@ repeatAlgebra = \case
        else put (Set.insert result env) >> pure (Right result)
   None -> pure (Right 0)
 
+-- | This will give an answer to part 1 of the challenge: read in a list
+--   of numbers in the format `+/-[1-9]+` and sum them.
 frequency :: ByteString -> Int
 frequency = either (error . show) id . fmap (cata sum') . parseOnly numbers
 
+-- | Helper for using the 'repeatAlgebra'.
 runRepeat :: [Int] -> Int
 runRepeat = either id (error "Could not find frequency")
         . flip evalState (Set.singleton 0) . runExceptT . cataM (ExceptT . repeatAlgebra)
 
+-- | This is the helper to run our 'repeatCoalgebra'. It uses 'ana' to unfold our
+--   seed values `(0, {0}, makeStream numbers)` and uses the 'runToEnd' fold to
+--   evaluate our result to get our final result.
 findRepeat :: ByteString -> Int
 findRepeat = either (error . show) id
            . fmap (runToEnd . runner)
