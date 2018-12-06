@@ -33,7 +33,65 @@ import Yaya.Either
 import Yaya.Unsafe.Data () -- imported for orphan instances
 import Yaya.Zoo
 
-{- |
+{- | If you hang around fellow Haskeller/Scala head, Greg Pfeil (a.k.a sellout), enough you will
+     hear about recursion schemes, as well as some other abstract concepts but those are not
+     the topic of the day. No, today we will join the conversation and talk about recursion
+     schemes as well.
+
+     I have dabbled with the concept for a long time. Due to being a colleague of Greg's at
+     [Formation](https://formation.ai/) I had to familiarise myself somewhat with the concepts.
+     But what annoyed me was that I didn't always get a full understanding of it. I could be given
+     a jumping off point to work with, but could never arrive at the initial ideas myself.
+
+     On the lookout for the perfect opportunity to add some skill points to my recursion shcemes
+     knowledge I decided to tackle the [Advent of Code](https://adventofcode.com/) challenges but
+     force myself to use recursion schemes. Granted I am very slow at solving these problems, but
+     at least I'm not in it for the competition.
+
+     So I started Day 1, armed with the [yaya](https://github.com/sellout/yaya) library, my point
+     of contact, @sellout, some tunes on Spotify, and the thirst for knowledge.
+
+     The functions below are heavily talked about and explained in detail as to what the
+     types involve and how the implementations work. Before that though, we will discuss here
+     on how we should start to think about recursion schemes.
+
+     This section will basically be the lessons gleaned from talking to Greg about how to
+     organise a recursion schemes workflow, a few terms, and some general Good Things(TM).
+     Of course we start with the problem we are trying to solve. We have some spec of a thing
+     we are trying implement and from this we must design an algorithm that will talk about
+     how this problem will be solved. Here we will see the first benefit of recursion schemes,
+     that is talking purely about the algorithm itself. We will take the spec and go on a case
+     by case business and compute what we need at each step, but we won't worry about the recursion
+     itself!
+
+     The idea of talking just about the computation is ushered in by choosing a pattern functor.
+     Below we will see a grab-bag of pattern functors and we will get a better feel for them as
+     we go along. As we solve more problems hopefully choosing pattern functors becomes a more
+     natural process. The pattern functor will be, as you may have guessed, a functor. The computation
+     will then fall out of the cases you need to match on for your functor. This implementation will
+     be most commonly referred to as an "algebra" or a "coalgebra".
+     As we are writing the algebra we will generally have some assumptions about our spec, but as we
+     go along we will most likely see cases where we need to add power. Some examples of this are,
+     introducing a `Set` to keep a record of visited values, using `State` to modify the visited values,
+     using `(->)` to pass an environment, using `Either` to short circuit computation.
+     So the moral of this point is to start with some assumption, a pattern functor, and modify your
+     algebra as necessities arise, but once this is writter there should not be much a need to modify
+     it in the next stages, i.e. folds and unfolds.
+
+     The next idea is that we should decompose our problem(s) into many algebras. Each algebra should
+     do one thing and one thing only. As computer scientists/engineers/programmers we strive to do this
+     a lot and often, so that can reason about smaller parts.
+     I would argue that algebras force us to do this as often as possible because our computations will
+     always be localised to the algebra itself.
+     As functional programmers we strive to compose things, taking our smaller parts and creating larger
+     pieces that we can reason about due to knowing how the smaller pieces work.
+
+     From our algebras we can then interpret them by running them through folds, such as `cata` and
+     unfolds, such as `ana`. The fact that that's pretty much all I had to say about the folds is a
+     testament of how useful it is to think about your algebra first and foremost and then your folds
+     and unfolds come after. Akin to "Implement first and optimise later".
+
+     Without further ado, lets see how we can solve Day 1 of AOC with recursion schemes!
 -}
 
 -- | Parse a `+` token.
