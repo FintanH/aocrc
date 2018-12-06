@@ -1,15 +1,3 @@
-{- | Notes:
-        e.g. (r ->), State, Either, etc.
-      As you begin to wish for functionality then you wish things into existence,
-      Begin by writing algebra, base case, recursive cases
-      Recursive instance of XNor and [], unsafe to due infinite lists
-      Start with sum pattern functor
-      backwards
-      cata works from the leaves upwards, so in the XNor case we will process the list
-
-      recursion schemes help you suss out bad specifications ;) see repeatConcat
- -}
-
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE TypeApplications #-}
