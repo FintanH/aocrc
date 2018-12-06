@@ -102,6 +102,9 @@ sum' = \case
 --      | Indeed a b
 --  @
 --
+--  We can read this as 'a `AndMaybe` b', so we are always guaranteed an `a`
+--  and possibly a `b`.
+--
 --  We have a guaranteed item in 'Only', and then 'Indeed' looks similar
 --  to 'Both' from 'XNor', so the head, and the rest of the list.
 --
@@ -123,7 +126,7 @@ sum' = \case
 --  @
 --
 --  So we have the original list as our first element in the '(,)', and the
---  current 'NonEmptyList' that we are inspecting. Calling 'project' let's
+--  current 'NonEmptyList' that we are inspecting. Calling 'project' lets
 --  us unwrap one layer 'Mu' and gives us back an 'AndMaybe' value that we case on.
 --
 --  If we have 'Only' one item we return the last item of the list and the original
