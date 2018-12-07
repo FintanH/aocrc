@@ -5,8 +5,8 @@ packages:
 - day2
 
 extra-deps:
-  - git: https://github.com/FintanH/yaya
-    commit: dfb453270307fd5a8b2f846b5d5345a5156cb667
+  - git: https://github.com/sellout/yaya
+    commit: 0fadf0a4957dcce2d91888bef91a068b4e0f832b
     subdirs:
       - core
       - unsafe

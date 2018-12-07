@@ -108,11 +108,11 @@ numbers = number `sepBy` newline
 --   We can see this by looking at the definition of 'XNor' from yaya.
 --   @
 --     data XNor a b
---       = None
+--       = Neither
 --       | Both a b
 --   @
 --
---   The case of 'None' acts the base case '[]' (or Nil).
+--   The case of 'Neither acts the base case '[]' (or Nil).
 --   The case of 'Both' acts as 'a : [a]' (or Cons). It contains
 --   the item in the list and the rest of the list.
 --
@@ -122,7 +122,7 @@ numbers = number `sepBy` newline
 --   'Both x' is the head of the list, our current element
 --   the 'y' being the accumulated sum, from the tail.
 --
---   'None', as mentioned is the base case and thus we can
+--   'Neither, as mentioned is the base case and thus we can
 --   return 0.
 --
 --   This 'Algebra' can then be passed to 'cata' which will
@@ -131,7 +131,7 @@ numbers = number `sepBy` newline
 sum' :: Algebra (XNor Int) Int
 sum' = \case
   Both x y -> x + y
-  None     -> 0
+  Neither  -> 0
 
 -- | This 'Coalgebra' serves as taking a 'NonEmptyList' and repeating it, followed
 --   by concatenating them together.
@@ -215,7 +215,7 @@ repeatConcat (orig, current) =
 --   non-empty list as long as provide at lease ONE item. Our initial 'a'
 --   for the function!
 --
---   In the case of 'None', our function will be 'Only'. So we take that
+--   In the case of 'Neither, our function will be 'Only'. So we take that
 --   'a' passed in and return the singleton, non-empty list.
 --
 --   In the case of 'Both', we have the head of our list, and the 'NonEmptyList'
@@ -224,7 +224,7 @@ repeatConcat (orig, current) =
 --   for the next continuation, when we finally call this function.
 nonEmpty :: Algebra (XNor a) (a -> NonEmptyList a)
 nonEmpty = \case
-  None -> embed . Only
+  Neither  -> embed . Only
   Both a f -> embed . flip Indeed (f a)
 
 -- | This is what it all comes down to. We want to turn our list into
@@ -257,7 +257,7 @@ nonEmpty = \case
 --   With this explanation out of the way we can break down how to implement this.
 --   We first 'project' our list `l` to unwrap one layer of our 'List'.
 --
---   In the case of 'None' we make a "safe" move of producing a stream of 0s.
+--   In the case of 'Neither we make a "safe" move of producing a stream of 0s.
 --   We cannot do much with an empty list, since it is undefined for 'Stream' data,
 --   but it works in our larger problem because adding 0 is no-op.
 --
@@ -266,7 +266,7 @@ nonEmpty = \case
 --   a 'Stream' of 'NonEmptyList's using 'repeatConcat'.
 makeStream :: List Int -> Stream Int
 makeStream l = case project l of
-  None     -> ana duplicate 0
+  Neither  -> ana duplicate 0
   Both h t -> ana repeatConcat (duplicate $ (cata nonEmpty t h))
   where
     duplicate :: Coalgebra ((,) a) a
@@ -337,7 +337,7 @@ repeatAlgebra = \case
     if result `Set.member` env
        then pure $ Left result
        else put (Set.insert result env) >> pure (Right result)
-  None -> pure (Right 0)
+  Neither -> pure (Right 0)
 
 -- | This will give an answer to part 1 of the challenge: read in a list
 --   of numbers in the format `+/-[1-9]+` and sum them.
