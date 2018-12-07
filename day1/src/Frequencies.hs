@@ -245,7 +245,7 @@ nonEmpty = \case
 --
 --   '(,) a' is chosen as the pattern functor because it naturally represents
 --   an infinite stream of data. We have the head of the stream, the first element
---   of the tuple, and the rest of the stream, the second element of the stream.
+--   of the tuple, and the rest of the stream, the second element of the tuple.
 --
 --   We could anaolgise this to a manual recursive definition of a stream:
 --   @
