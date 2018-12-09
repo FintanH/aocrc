@@ -3,6 +3,7 @@
 module Checksum where
 
 import           Data.Bifunctor (bimap)
+import           Data.Bool (bool)
 import qualified Data.Map as Map
 import           Data.Monoid (Sum (..))
 
@@ -47,3 +48,11 @@ checksum :: String -> Integer
 checksum = f . foldMap searchSum . map searchString . lines
   where
     f (Sum n, Sum m) = n * m
+
+hammingDistance :: String -> String -> Int
+hammingDistance s1 s2 = getSum . foldMap (bool mempty (Sum 1)) $ zipWith (==) s1 s2
+
+checkIds :: String -> Int
+checkIds s =
+  let s'@(_:s'') = lines s
+  in minimum . map (uncurry hammingDistance) $ zip s' s''
