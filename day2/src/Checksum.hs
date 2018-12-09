@@ -1,16 +1,17 @@
+{-# LANGUAGE LambdaCase #-}
 
 module Checksum where
 
-import           Data.Map (Map)
+import           Data.Bifunctor (bimap)
 import qualified Data.Map as Map
 import           Data.Monoid (Sum (..))
-import qualified Data.Set as Set
 
 -- input is a string of characters followed by a newline
 -- need to map-reduce count of repeating letters
 -- if we have a 2 repeat (one or more) or 3 repeat (one or more) tally these
 -- multiply tally to get final checksum
 
+-- 
 data Find
   = NotFound
   | Found
@@ -20,34 +21,29 @@ instance Semigroup Find where
   _ <> Found = Found
   f <> _     = f
 
-data Search = Search
-  { twos :: Find, threes :: Find }
+instance Monoid Find where
+  mempty = NotFound
+  mappend = (<>)
 
-instance Semigroup Search where
-  Search twos' threes' <> Search twos'' threes'' =
-    Search (twos' <> twos'') (threes' <> threes'')
+type Search = (Find, Find)
 
 searchSum :: Search -> (Sum Integer, Sum Integer)
-searchSum (Search twos_ threes_) =
-  case (twos_, threes_) of
-    (NotFound, NotFound) -> (mempty, mempty)
-    (Found,    NotFound) -> (Sum 1, mempty)
-    (NotFound, Found)    -> (mempty, Sum 1)
-    (Found,    Found)    -> (Sum 1, Sum 1)
+searchSum = bimap toSum toSum
+  where
+    toSum :: Num a => Find -> Sum a
+    toSum = \case
+      NotFound -> mempty
+      Found    -> Sum 1
 
 searchString :: String -> Search
-searchString = searchIt . Map.updateWith (+1)
+searchString = foldMap toSearch . foldr (\c -> Map.insertWith (+) c 1) Map.empty
   where
-    searchIt :: Map Char Int -> Search
-    searchIt = foldr (\i s ->  if i == 2 then Search Found NotFound <> s
-                          else if i == 3 then Search NotFound Found <> s
-                          else s) (Search NotFound NotFound)
+    toSearch :: Int -> Search
+    toSearch 2 = (Found, NotFound)
+    toSearch 3 = (NotFound, Found)
+    toSearch _ = mempty
 
-
-searchStrings :: [String] -> [Search]
-searchStrings = undefined
-
-checksum :: [Search] -> Integer
-checksum = f . foldMap searchSum
+checksum :: String -> Integer
+checksum = f . foldMap searchSum . map searchString . lines
   where
     f (Sum n, Sum m) = n * m
