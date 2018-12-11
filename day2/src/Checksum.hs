@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Checksum where
 
@@ -9,7 +10,10 @@ import qualified Data.Map as Map
 import           Data.Monoid (Sum (..))
 import           Data.Ord (comparing)
 
+import           Yaya.Control
 import           Yaya.Data
+
+import           Yaya.Unsafe.Data ()
 
 -- input is a string of characters followed by a newline
 -- need to map-reduce count of repeating letters
@@ -47,7 +51,7 @@ toSearch _ = mempty
 
 searchStringAlg :: XNor Char (Map.Map Char Int -> Search) -> (Map.Map Char Int -> Search)
 searchStringAlg = \case
-  Neither -> const (NotFound, NotFound)
+  Neither -> const mempty
   Both c s -> \m ->
     let (mV, m') = Map.insertLookupWithKey (\_ i j -> i + j) c 1 m
     in maybe (s m') (\v -> s m' <> toSearch (v + 1)) mV
@@ -57,6 +61,16 @@ searchString = foldMap toSearch . foldr (\c -> Map.insertWith (+) c 1) Map.empty
 
 checksum :: String -> Integer
 checksum = f . foldMap searchSum . map searchString . lines
+  where
+    f (Sum n, Sum m) = n * m
+
+checksum' :: String -> Integer
+checksum' = f
+          . searchSum
+          . ($ Map.empty)
+          . mconcat
+          . map (cata searchStringAlg)
+          . lines
   where
     f (Sum n, Sum m) = n * m
 
