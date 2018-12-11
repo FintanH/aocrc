@@ -9,12 +9,14 @@ import qualified Data.Map as Map
 import           Data.Monoid (Sum (..))
 import           Data.Ord (comparing)
 
+import           Yaya.Data
+
 -- input is a string of characters followed by a newline
 -- need to map-reduce count of repeating letters
 -- if we have a 2 repeat (one or more) or 3 repeat (one or more) tally these
 -- multiply tally to get final checksum
 
--- 
+--
 data Find
   = NotFound
   | Found
@@ -38,13 +40,20 @@ searchSum = bimap toSum toSum
       NotFound -> mempty
       Found    -> Sum 1
 
+toSearch :: Int -> Search
+toSearch 2 = (Found, NotFound)
+toSearch 3 = (NotFound, Found)
+toSearch _ = mempty
+
+searchStringAlg :: XNor Char (Map.Map Char Int -> Search) -> (Map.Map Char Int -> Search)
+searchStringAlg = \case
+  Neither -> const (NotFound, NotFound)
+  Both c s -> \m ->
+    let (mV, m') = Map.insertLookupWithKey (\_ i j -> i + j) c 1 m
+    in maybe (s m') (\v -> s m' <> toSearch (v + 1)) mV
+
 searchString :: String -> Search
 searchString = foldMap toSearch . foldr (\c -> Map.insertWith (+) c 1) Map.empty
-  where
-    toSearch :: Int -> Search
-    toSearch 2 = (Found, NotFound)
-    toSearch 3 = (NotFound, Found)
-    toSearch _ = mempty
 
 checksum :: String -> Integer
 checksum = f . foldMap searchSum . map searchString . lines
