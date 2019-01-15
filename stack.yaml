@@ -5,11 +5,8 @@ packages:
 - day2
 
 extra-deps:
-  - git: https://github.com/sellout/yaya
-    commit: 0fadf0a4957dcce2d91888bef91a068b4e0f832b
-    subdirs:
-      - core
-      - unsafe
+  - yaya-0.2.1.0
+  - yaya-unsafe-0.1.1.0
 
 ghc-options:
     # All packages

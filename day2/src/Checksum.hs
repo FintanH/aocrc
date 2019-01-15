@@ -10,10 +10,10 @@ import qualified Data.Map as Map
 import           Data.Monoid (Sum (..))
 import           Data.Ord (comparing)
 
-import           Yaya.Control
-import           Yaya.Data
+import           Yaya.Fold
+import           Yaya.Pattern
 
-import           Yaya.Unsafe.Data ()
+import           Yaya.Unsafe.Fold.Instances ()
 
 -- input is a string of characters followed by a newline
 -- need to map-reduce count of repeating letters
@@ -36,7 +36,7 @@ instance Monoid Find where
 
 type Search = (Find, Find)
 
-searchSum :: Search -> (Sum Integer, Sum Integer)
+searchSum :: Num a => Search -> (Sum a, Sum a)
 searchSum = bimap toSum toSum
   where
     toSum :: Num a => Find -> Sum a
@@ -49,12 +49,17 @@ toSearch 2 = (Found, NotFound)
 toSearch 3 = (NotFound, Found)
 toSearch _ = mempty
 
-searchStringAlg :: XNor Char (Map.Map Char Int -> Search) -> (Map.Map Char Int -> Search)
+searchStringAlg :: XNor Char (Map.Map Char (Int, Search) -> Map.Map Char (Int, Search))
+                -> Map.Map Char (Int, Search) -> Map.Map Char (Int, Search)
 searchStringAlg = \case
-  Neither -> const mempty
+  Neither -> id
   Both c s -> \m ->
-    let (mV, m') = Map.insertLookupWithKey (\_ i j -> i + j) c 1 m
-    in maybe (s m') (\v -> s m' <> toSearch (v + 1)) mV
+    case Map.lookup c m of
+      Nothing -> s $ Map.insert c (1, mempty) m
+      Just (i, search) ->
+        let j = i + 1
+            search' = search <> toSearch j
+         in s $ Map.insert c (j, search') m
 
 searchString :: String -> Search
 searchString = foldMap toSearch . foldr (\c -> Map.insertWith (+) c 1) Map.empty
@@ -66,10 +71,11 @@ checksum = f . foldMap searchSum . map searchString . lines
 
 checksum' :: String -> Integer
 checksum' = f
-          . searchSum
+          . mconcat
+          . (map snd . Map.elems)
           . ($ Map.empty)
           . mconcat
-          . map (cata searchStringAlg)
+          . map (fmap (fmap . fmap $ searchSum) . cata searchStringAlg)
           . lines
   where
     f (Sum n, Sum m) = n * m

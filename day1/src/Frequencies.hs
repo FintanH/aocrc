@@ -14,12 +14,15 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Text.Parser.Char (char, digit, newline)
 
-import Yaya
-import Yaya.Control
-import Yaya.Data
-import Yaya.Either
-import Yaya.Unsafe.Data () -- imported for orphan instances
-import Yaya.Zoo
+import Yaya.Fold
+import Yaya.Fold.Common (fromEither)
+import Yaya.Pattern
+import Yaya.Zoo (List, Stream, NonEmptyList, cataM)
+
+import Yaya.Unsafe.Fold.Instances ()
+
+runToEnd :: Nu (Either a) -> a
+runToEnd = cata fromEither
 
 {- | If you hang around fellow Haskeller/Scala head, Greg Pfeil (a.k.a sellout), enough you will
      hear about recursion schemes, as well as some other abstract concepts but those are not
