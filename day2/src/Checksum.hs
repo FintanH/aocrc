@@ -1,5 +1,7 @@
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE TypeApplications  #-}
 
 module Checksum where
 
@@ -49,8 +51,12 @@ toSearch 2 = (Found, NotFound)
 toSearch 3 = (NotFound, Found)
 toSearch _ = mempty
 
-searchStringAlg :: XNor Char (Map.Map Char (Int, Search) -> Map.Map Char (Int, Search))
-                -> Map.Map Char (Int, Search) -> Map.Map Char (Int, Search)
+countAlg :: XNor Char (Map.Map Char Int) -> Map.Map Char Int
+countAlg = \case
+  Neither  -> Map.empty
+  Both c m -> Map.insertWith (+) c 1 m
+
+searchStringAlg :: XNor Char (Map.Map Char Int -> Search) -> (Map.Map Char Int -> Search)
 searchStringAlg = \case
   Neither -> id
   Both c s -> \m ->
@@ -60,6 +66,16 @@ searchStringAlg = \case
         let j = i + 1
             search' = search <> toSearch j
          in s $ Map.insert c (j, search') m
+
+toSearchAlg :: XNor (Char, Int) Search -> Search
+toSearchAlg = \case
+  Neither       -> mempty
+  Both (_, i) s -> toSearch i <> s
+
+toSumAlg :: XNor Search (Sum Integer, Sum Integer) -> (Sum Integer, Sum Integer)
+toSumAlg = \case
+  Neither   -> mempty
+  Both s s' -> searchSum s <> s'
 
 searchString :: String -> Search
 searchString = foldMap toSearch . foldr (\c -> Map.insertWith (+) c 1) Map.empty
@@ -71,17 +87,30 @@ checksum = f . foldMap searchSum . map searchString . lines
 
 checksum' :: String -> Integer
 checksum' = f
-          . mconcat
-          . (map snd . Map.elems)
-          . ($ Map.empty)
-          . mconcat
-          . map (fmap (fmap . fmap $ searchSum) . cata searchStringAlg)
+          . cata toSumAlg
+          . map (cata toSearchAlg . Map.toList . cata countAlg)
           . lines
   where
     f (Sum n, Sum m) = n * m
 
+hammingAlg :: Eq a => XNor (a, a) ([a] -> [a]) -> ([a] -> [a])
+hammingAlg = \case
+  Neither -> id
+  Both (a, b) acc -> \l ->
+    let r = acc l
+    in if a == b then (a:r) else r
+
 hammingDistance :: String -> String -> String
 hammingDistance s1 s2 = map fst . filter snd $ zipWith (\c c' -> (c,c == c')) s1 s2
+
+hammingDistanceBetter :: [Char] -> [Char] -> [Char]
+hammingDistanceBetter [] [] = []
+hammingDistanceBetter _  [] = []
+hammingDistanceBetter [] _  = []
+hammingDistanceBetter (c:cs) (c':cs') =
+  if c == c'
+     then c:hammingDistanceBetter cs cs'
+     else hammingDistance cs cs'
 
 checkIds :: String -> String
 checkIds s = maximumBy (comparing length) $ do
@@ -89,4 +118,12 @@ checkIds s = maximumBy (comparing length) $ do
   (i, t) <- ids
   (j, t') <- ids
   guard $ i /= j
-  pure $ hammingDistance t t'
+  pure $ hammingDistanceBetter t t'
+
+checkIds' :: String -> String
+checkIds' s = maximumBy (comparing length) $ do
+  let ids = zip [1 :: Int ..] (lines s)
+  (i, t) <- ids
+  (j, t') <- ids
+  guard $ i /= j
+  pure $ cata hammingAlg (zip t t') []
